@@ -13,7 +13,7 @@ jobs:
       ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
 
     steps:
-      # 📥 Clonar repositório
+      # 📥 Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -23,23 +23,23 @@ jobs:
         with:
           python-version: "3.11"
 
-      # ⚙️ Dependências do sistema
+      # ⚙️ System deps
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y \
-            build-essential git zip unzip \
+            build-essential git zip unzip wget \
             openjdk-17-jdk python3-pip \
             python3-setuptools python3-wheel \
-            libffi-dev libssl-dev wget tar
+            libffi-dev libssl-dev
 
-      # 📦 Instalar Buildozer
+      # 📦 Python deps
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer cython
 
-      # 🤖 Instalar Android SDK + aceitar licenças + AIDL
+      # 🤖 Install Android SDK (CORRETO)
       - name: Setup Android SDK
         run: |
           mkdir -p $ANDROID_HOME/cmdline-tools
@@ -58,15 +58,14 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-33" \
-            "build-tools;33.0.2" \
-            "tools"
+            "build-tools;33.0.2"
 
-      # ⚙️ Criar buildozer.spec se não existir
+      # ⚙️ Init buildozer
       - name: Init Buildozer
         run: |
           buildozer init || true
 
-      # ⚙️ Configurar buildozer
+      # ⚙️ FIX buildozer.spec (FORÇA versão estável)
       - name: Configure buildozer.spec
         run: |
           sed -i 's/title = .*/title = PayEngine/g' buildozer.spec
@@ -74,14 +73,20 @@ jobs:
           sed -i 's/package.domain = .*/package.domain = org.payengine/g' buildozer.spec
           sed -i 's/requirements = .*/requirements = python3,kivy/g' buildozer.spec
           sed -i 's/android.api = .*/android.api = 33/g' buildozer.spec
+          sed -i 's/android.minapi = .*/android.minapi = 21/g' buildozer.spec
           sed -i 's/android.build_tools = .*/android.build_tools = 33.0.2/g' buildozer.spec
           sed -i 's/source.include_exts = .*/source.include_exts = py,png,jpg,ogg,json/g' buildozer.spec
-          sed -i 's/orientation = .*/orientation = landscape/g' buildozer.spec
 
-      # 🚀 Build APK
+      # 🔥 FORÇAR Buildozer usar SDK correto
+      - name: Fix Buildozer SDK
+        run: |
+          mkdir -p ~/.buildozer/android/platform/android-sdk
+          cp -r $ANDROID_HOME/* ~/.buildozer/android/platform/android-sdk/ || true
+
+      # 🚀 BUILD FINAL (COM PATH CORRETO)
       - name: Build APK
         run: |
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$PATH
           buildozer -v android debug
 
       # 📤 Upload APK
