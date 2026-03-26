@@ -60,12 +60,20 @@ jobs:
             "platforms;android-33" \
             "build-tools;33.0.2"
 
+      # 🔥 CRIA CAMINHO ANTIGO (FIX DO SDKMANAGER)
+      - name: Fix sdkmanager path (compatibility)
+        run: |
+          mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin
+
+          ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+                ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager || true
+
       # ⚙️ Init buildozer
       - name: Init Buildozer
         run: |
           buildozer init || true
 
-      # ⚙️ FIX buildozer.spec (FORÇA versão estável)
+      # ⚙️ Configurar buildozer.spec (TRAVA VERSÃO BOA)
       - name: Configure buildozer.spec
         run: |
           sed -i 's/title = .*/title = PayEngine/g' buildozer.spec
@@ -77,13 +85,13 @@ jobs:
           sed -i 's/android.build_tools = .*/android.build_tools = 33.0.2/g' buildozer.spec
           sed -i 's/source.include_exts = .*/source.include_exts = py,png,jpg,ogg,json/g' buildozer.spec
 
-      # 🔥 FORÇAR Buildozer usar SDK correto
+      # 🔥 FORÇAR Buildozer usar SDK CERTO
       - name: Fix Buildozer SDK
         run: |
           mkdir -p ~/.buildozer/android/platform/android-sdk
           cp -r $ANDROID_HOME/* ~/.buildozer/android/platform/android-sdk/ || true
 
-      # 🚀 BUILD FINAL (COM PATH CORRETO)
+      # 🚀 BUILD FINAL
       - name: Build APK
         run: |
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$PATH
