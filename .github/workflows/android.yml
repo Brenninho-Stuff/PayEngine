@@ -1,0 +1,63 @@
+name: Pay Engine - Android Build
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 📥 Clonar repositório
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 🐍 Instalar Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ⚙️ Instalar dependências do sistema
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip build-essential git zip unzip \
+          openjdk-17-jdk python3-setuptools python3-wheel \
+          libffi-dev libssl-dev
+
+      # 📦 Instalar Buildozer + Cython
+      - name: Install Buildozer
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython
+
+      # 📱 Inicializar buildozer (se não existir)
+      - name: Init Buildozer
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+
+      # ⚙️ Configurar buildozer automaticamente
+      - name: Configure buildozer.spec
+        run: |
+          sed -i 's/title = .*/title = PayEngine/g' buildozer.spec
+          sed -i 's/package.name = .*/package.name = payengine/g' buildozer.spec
+          sed -i 's/package.domain = .*/package.domain = org.payengine/g' buildozer.spec
+          sed -i 's/requirements = .*/requirements = python3,kivy,pygame/g' buildozer.spec
+          sed -i 's/source.include_exts = .*/source.include_exts = py,png,jpg,ogg,json/g' buildozer.spec
+          sed -i 's/orientation = .*/orientation = landscape/g' buildozer.spec
+
+      # 🚀 Build APK
+      - name: Build APK
+        run: |
+          buildozer -v android debug
+
+      # 📤 Upload APK
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PayEngine-Android
+          path: bin/*.apk
