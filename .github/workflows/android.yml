@@ -9,51 +9,72 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 📥 Clonar repositório
+      # 📥 Clonar repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🐍 Instalar Python
+      # 🐍 Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ⚙️ Instalar dependências do sistema
+      # ⚙️ Dependências
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip build-essential git zip unzip \
-          openjdk-17-jdk python3-setuptools python3-wheel \
-          libffi-dev libssl-dev
+          sudo apt install -y \
+            build-essential git zip unzip \
+            openjdk-17-jdk python3-pip \
+            python3-setuptools python3-wheel \
+            libffi-dev libssl-dev
 
-      # 📦 Instalar Buildozer + Cython
-      - name: Install Buildozer
+      # 📦 Python deps
+      - name: Install Python packages
         run: |
           pip install --upgrade pip
           pip install buildozer cython
 
-      # 📱 Inicializar buildozer (se não existir)
+      # 🤖 Instalar Android SDK manualmente + aceitar licenças
+      - name: Setup Android SDK
+        run: |
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
+
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-*.zip
+
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ || true
+
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+          yes | sdkmanager --licenses
+
+          sdkmanager "platform-tools" \
+                     "platforms;android-33" \
+                     "build-tools;33.0.2"
+
+      # ⚙️ Buildozer config (FORÇANDO versão estável)
       - name: Init Buildozer
         run: |
-          if [ ! -f buildozer.spec ]; then
-            buildozer init
-          fi
+          buildozer init || true
 
-      # ⚙️ Configurar buildozer automaticamente
       - name: Configure buildozer.spec
         run: |
           sed -i 's/title = .*/title = PayEngine/g' buildozer.spec
           sed -i 's/package.name = .*/package.name = payengine/g' buildozer.spec
           sed -i 's/package.domain = .*/package.domain = org.payengine/g' buildozer.spec
-          sed -i 's/requirements = .*/requirements = python3,kivy,pygame/g' buildozer.spec
+          sed -i 's/requirements = .*/requirements = python3,kivy/g' buildozer.spec
+          sed -i 's/android.api = .*/android.api = 33/g' buildozer.spec
+          sed -i 's/android.build_tools = .*/android.build_tools = 33.0.2/g' buildozer.spec
           sed -i 's/source.include_exts = .*/source.include_exts = py,png,jpg,ogg,json/g' buildozer.spec
-          sed -i 's/orientation = .*/orientation = landscape/g' buildozer.spec
 
       # 🚀 Build APK
       - name: Build APK
         run: |
-          buildozer -v android debug
+          buildozer android debug
 
       # 📤 Upload APK
       - name: Upload APK
