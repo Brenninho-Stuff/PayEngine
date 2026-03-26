@@ -8,8 +8,12 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: ${{ github.workspace }}/android-sdk
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+
     steps:
-      # 📥 Clonar repo
+      # 📥 Clonar repositório
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -19,7 +23,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      # ⚙️ Dependências
+      # ⚙️ Dependências do sistema
       - name: Install system dependencies
         run: |
           sudo apt update
@@ -27,19 +31,19 @@ jobs:
             build-essential git zip unzip \
             openjdk-17-jdk python3-pip \
             python3-setuptools python3-wheel \
-            libffi-dev libssl-dev
+            libffi-dev libssl-dev wget tar
 
-      # 📦 Python deps
-      - name: Install Python packages
+      # 📦 Instalar Buildozer
+      - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer cython
 
-      # 🤖 Instalar Android SDK manualmente + aceitar licenças
+      # 🤖 Instalar Android SDK + aceitar licenças + AIDL
       - name: Setup Android SDK
         run: |
-          mkdir -p $HOME/android-sdk
-          cd $HOME/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME
 
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-*.zip
@@ -47,20 +51,22 @@ jobs:
           mkdir -p cmdline-tools/latest
           mv cmdline-tools/* cmdline-tools/latest/ || true
 
-          export ANDROID_HOME=$HOME/android-sdk
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
           yes | sdkmanager --licenses
 
-          sdkmanager "platform-tools" \
-                     "platforms;android-33" \
-                     "build-tools;33.0.2"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "tools"
 
-      # ⚙️ Buildozer config (FORÇANDO versão estável)
+      # ⚙️ Criar buildozer.spec se não existir
       - name: Init Buildozer
         run: |
           buildozer init || true
 
+      # ⚙️ Configurar buildozer
       - name: Configure buildozer.spec
         run: |
           sed -i 's/title = .*/title = PayEngine/g' buildozer.spec
@@ -70,11 +76,13 @@ jobs:
           sed -i 's/android.api = .*/android.api = 33/g' buildozer.spec
           sed -i 's/android.build_tools = .*/android.build_tools = 33.0.2/g' buildozer.spec
           sed -i 's/source.include_exts = .*/source.include_exts = py,png,jpg,ogg,json/g' buildozer.spec
+          sed -i 's/orientation = .*/orientation = landscape/g' buildozer.spec
 
       # 🚀 Build APK
       - name: Build APK
         run: |
-          buildozer android debug
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          buildozer -v android debug
 
       # 📤 Upload APK
       - name: Upload APK
